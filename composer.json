@@ -1,0 +1,21 @@
+{
+    "name": "semitexa/auth",
+    "description": "Authentication module for Semitexa Framework",
+    "version": "v1.0.0",
+    "type": "semitexa-module",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4",
+        "semitexa/core": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Semitexa\\Auth\\": "src/"
+        }
+    },
+    "extra": {
+        "semitexa-module": {
+            "extends": null
+        }
+    }
+}
