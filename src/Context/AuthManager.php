@@ -7,14 +7,17 @@ namespace Semitexa\Auth\Context;
 use Semitexa\Core\Auth\AuthContextInterface;
 use Semitexa\Core\Auth\AuthenticatableInterface;
 use Semitexa\Core\Auth\AuthResult;
-use Semitexa\Core\Auth\GuestAuthContext;
 
+/**
+ * Request-scoped auth context backed by AuthContextStore.
+ *
+ * AuthContextStore isolates state per Swoole coroutine, so concurrent
+ * HTTP requests never share auth data regardless of how many times
+ * getInstance() is called within the same process.
+ */
 final class AuthManager implements AuthContextInterface
 {
     private static ?self $instance = null;
-
-    private ?AuthenticatableInterface $user = null;
-    private ?AuthResult $lastResult = null;
 
     private function __construct()
     {
@@ -27,33 +30,33 @@ final class AuthManager implements AuthContextInterface
 
     public function getUser(): ?AuthenticatableInterface
     {
-        return $this->user;
+        return AuthContextStore::getUser();
     }
 
     public function isGuest(): bool
     {
-        return $this->user === null;
+        return AuthContextStore::getUser() === null;
     }
 
     public function setUser(?AuthenticatableInterface $user): void
     {
-        $this->user = $user;
+        AuthContextStore::setUser($user);
     }
 
     public function setAuthResult(AuthResult $result): void
     {
-        $this->lastResult = $result;
-        
+        AuthContextStore::setResult($result);
+
         if ($result->success && $result->user !== null) {
-            $this->user = $result->user;
+            AuthContextStore::setUser($result->user);
         } else {
-            $this->user = null;
+            AuthContextStore::setUser(null);
         }
     }
 
     public function getLastResult(): ?AuthResult
     {
-        return $this->lastResult;
+        return AuthContextStore::getResult();
     }
 
     public static function get(): ?self
