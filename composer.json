@@ -1,7 +1,7 @@
 {
     "name": "semitexa/auth",
     "description": "Authentication module for Semitexa Framework",
-    "version": "v1.0.3",
+    "version": "v1.0.5",
     "type": "semitexa-module",
     "license": "MIT",
     "require": {
