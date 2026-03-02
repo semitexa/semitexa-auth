@@ -27,6 +27,11 @@ class SessionAuthHandler implements AuthHandlerInterface
         $this->session = $session;
     }
 
+    public function setUserProvider(UserProviderInterface $userProvider): void
+    {
+        $this->userProvider = $userProvider;
+    }
+
     public function handle(PayloadInterface $payload): ?AuthResult
     {
         if ($this->session === null || $this->userProvider === null) {

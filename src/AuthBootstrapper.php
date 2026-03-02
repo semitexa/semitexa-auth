@@ -108,6 +108,16 @@ final class AuthBootstrapper
                 // Session not in request scope; handler will treat as guest in handle()
             }
         }
+
+        if (method_exists($handler, 'setUserProvider')) {
+            try {
+                $provider = $this->container->get(\Semitexa\Auth\Contract\UserProviderInterface::class);
+                $handler->setUserProvider($provider);
+            } catch (\Throwable) {
+                // UserProvider not registered; handler will bail out gracefully
+            }
+        }
+
         return $handler;
     }
 
