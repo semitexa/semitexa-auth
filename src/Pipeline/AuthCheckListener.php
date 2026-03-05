@@ -42,13 +42,29 @@ final class AuthCheckListener implements PipelineListenerInterface
 
     private function checkRequiresAuth(RequestPipelineContext $context): void
     {
-        $ref = new \ReflectionClass($context->requestDto);
-        if ($ref->getAttributes(RequiresAuth::class) === []) {
+        if (!$this->hasRequiresAuth($context->requestDto)) {
             return;
         }
 
         if (AuthManager::getInstance()->isGuest()) {
             throw new AuthenticationRequiredException('Authentication required');
         }
+    }
+
+    /**
+     * Walk the class hierarchy to find #[RequiresAuth].
+     * Registry-generated DTOs extend the base payload class that carries the attribute,
+     * so we must check parent classes as well — PHP's getAttributes() is not inherited.
+     */
+    private function hasRequiresAuth(object $dto): bool
+    {
+        $ref = new \ReflectionClass($dto);
+        while ($ref !== false) {
+            if ($ref->getAttributes(RequiresAuth::class) !== []) {
+                return true;
+            }
+            $ref = $ref->getParentClass();
+        }
+        return false;
     }
 }

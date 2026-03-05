@@ -45,6 +45,10 @@ final class AuthBootstrapper
         }
 
         $manager = AuthManager::getInstance();
+        // Reset auth state for this request. In Swoole each coroutine has isolated context,
+        // but in CLI/test mode a static fallback persists across requests — clear it here
+        // so each auth check starts from a guest state.
+        $manager->setUser(null);
 
         if ($this->strategy === 'first_match') {
             foreach ($this->handlers as $handlerOrClass) {
