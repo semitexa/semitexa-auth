@@ -6,6 +6,7 @@ namespace Semitexa\Auth;
 
 use Psr\Container\ContainerInterface;
 use Semitexa\Auth\Attribute\AsAuthHandler;
+use Semitexa\Core\Environment;
 use Semitexa\Auth\Context\AuthManager;
 use Semitexa\Auth\Handler\AuthHandlerInterface;
 use Semitexa\Core\Auth\AuthResult;
@@ -16,6 +17,9 @@ use Semitexa\Core\Session\SessionInterface;
 
 final class AuthBootstrapper
 {
+    /** @var list<class-string<AuthHandlerInterface>> Cached discovery result (worker-scoped, survives across requests) */
+    private static ?array $discoveredHandlerClasses = null;
+
     /** @var list<class-string<AuthHandlerInterface>|AuthHandlerInterface> */
     private array $handlers = [];
 
@@ -27,8 +31,8 @@ final class AuthBootstrapper
         ?EventDispatcherInterface $events = null,
         private readonly ?ContainerInterface $requestScopedContainer = null,
     ) {
-        $this->enabled  = getenv('AUTH_ENABLED') !== 'false';
-        $this->strategy = getenv('AUTH_STRATEGY') ?: 'first_match';
+        $this->enabled  = Environment::getEnvValue('AUTH_ENABLED') !== 'false';
+        $this->strategy = Environment::getEnvValue('AUTH_STRATEGY', 'first_match');
 
         $this->discoverHandlers();
     }
@@ -126,11 +130,17 @@ final class AuthBootstrapper
     }
 
     /**
-     * Discover handler classes marked with #[AsAuthHandler]. Handlers are resolved lazily in handle()
-     * so request-scoped dependencies (Session, etc.) are available.
+     * Discover handler classes marked with #[AsAuthHandler]. Uses a static cache so the
+     * expensive ClassDiscovery + reflection scan runs only once per worker, not per request.
+     * Handlers are resolved lazily in handle() so request-scoped dependencies are available.
      */
     private function discoverHandlers(): void
     {
+        if (self::$discoveredHandlerClasses !== null) {
+            $this->handlers = self::$discoveredHandlerClasses;
+            return;
+        }
+
         $classes = ClassDiscovery::findClassesWithAttribute(AsAuthHandler::class);
 
         $withPriority = [];
@@ -156,7 +166,8 @@ final class AuthBootstrapper
 
         usort($withPriority, static fn(array $a, array $b) => $a[0] <=> $b[0]);
 
-        $this->handlers = array_column($withPriority, 1);
+        self::$discoveredHandlerClasses = array_column($withPriority, 1);
+        $this->handlers = self::$discoveredHandlerClasses;
     }
 
     /**
