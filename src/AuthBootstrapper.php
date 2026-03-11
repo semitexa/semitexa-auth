@@ -31,7 +31,7 @@ final class AuthBootstrapper
         ?EventDispatcherInterface $events = null,
         private readonly ?ContainerInterface $requestScopedContainer = null,
     ) {
-        $this->enabled  = Environment::getEnvValue('AUTH_ENABLED') !== 'false';
+        $this->enabled  = Environment::getEnvValue('AUTH_ENABLED', 'true') !== 'false';
         $this->strategy = Environment::getEnvValue('AUTH_STRATEGY', 'first_match');
 
         $this->discoverHandlers();
