@@ -8,7 +8,6 @@ use Semitexa\Auth\Attribute\AsAuthHandler;
 use Semitexa\Auth\Contract\UserProviderInterface;
 use Semitexa\Core\Attributes\InjectAsReadonly;
 use Semitexa\Core\Auth\AuthResult;
-use Semitexa\Core\Contract\PayloadInterface;
 use Semitexa\Core\Session\SessionInterface;
 
 #[AsAuthHandler(priority: 0)]
@@ -32,7 +31,7 @@ class SessionAuthHandler implements AuthHandlerInterface
         $this->userProvider = $userProvider;
     }
 
-    public function handle(PayloadInterface $payload): ?AuthResult
+    public function handle(object $payload): ?AuthResult
     {
         if ($this->session === null || $this->userProvider === null) {
             return null;

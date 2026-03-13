@@ -10,7 +10,6 @@ use Semitexa\Core\Environment;
 use Semitexa\Auth\Context\AuthManager;
 use Semitexa\Auth\Handler\AuthHandlerInterface;
 use Semitexa\Core\Auth\AuthResult;
-use Semitexa\Core\Contract\PayloadInterface;
 use Semitexa\Core\Discovery\ClassDiscovery;
 use Semitexa\Core\Event\EventDispatcherInterface;
 use Semitexa\Core\Session\SessionInterface;
@@ -42,7 +41,7 @@ final class AuthBootstrapper
         return $this->enabled;
     }
 
-    public function handle(PayloadInterface $payload): void
+    public function handle(object $payload): void
     {
         if (!$this->enabled) {
             return;

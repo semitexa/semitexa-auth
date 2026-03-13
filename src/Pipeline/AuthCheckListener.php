@@ -11,7 +11,6 @@ use Semitexa\Core\Attributes\AsPipelineListener;
 use Semitexa\Core\Attributes\InjectAsReadonly;
 use Semitexa\Core\Attributes\RequiresAuth;
 use Semitexa\Core\Attributes\RequiresPermission;
-use Semitexa\Core\Contract\PayloadInterface;
 use Semitexa\Core\Pipeline\AuthCheck;
 use Semitexa\Core\Pipeline\Exception\AccessDeniedException;
 use Semitexa\Core\Pipeline\Exception\AuthenticationRequiredException;
@@ -39,9 +38,7 @@ final class AuthCheckListener implements PipelineListenerInterface
             return;
         }
 
-        if ($context->requestDto instanceof PayloadInterface) {
-            $authBootstrapper->handle($context->requestDto);
-        }
+        $authBootstrapper->handle($context->requestDto);
 
         $context->authResult = AuthManager::getInstance()->getLastResult();
 
