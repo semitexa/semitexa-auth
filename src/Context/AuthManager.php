@@ -43,6 +43,11 @@ final class AuthManager implements AuthContextInterface
         AuthContextStore::setUser($user);
     }
 
+    public function resetToGuest(): void
+    {
+        AuthContextStore::clear();
+    }
+
     public function setAuthResult(AuthResult $result): void
     {
         AuthContextStore::setResult($result);

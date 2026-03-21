@@ -33,7 +33,9 @@ class SessionAuthHandler implements AuthHandlerInterface
 
     public function handle(object $payload): ?AuthResult
     {
-        if (class_exists(\Semitexa\Core\Debug\SessionDebugLog::class)) {
+        $hasDebugLog = class_exists(\Semitexa\Core\Debug\SessionDebugLog::class);
+
+        if ($hasDebugLog) {
             \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle.entry', [
                 'has_session' => $this->session !== null,
                 'has_user_provider' => $this->userProvider !== null,
@@ -45,7 +47,7 @@ class SessionAuthHandler implements AuthHandlerInterface
         $userId = $this->session->get(self::SESSION_USER_KEY);
 
         if ($userId === null) {
-            if (class_exists(\Semitexa\Core\Debug\SessionDebugLog::class)) {
+            if ($hasDebugLog) {
                 \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle', ['reason' => 'no_user_id_in_session']);
             }
             return null;
@@ -55,13 +57,13 @@ class SessionAuthHandler implements AuthHandlerInterface
 
         if ($user === null) {
             $this->session->forget(self::SESSION_USER_KEY);
-            if (class_exists(\Semitexa\Core\Debug\SessionDebugLog::class)) {
+            if ($hasDebugLog) {
                 \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle', ['reason' => 'user_not_found', 'user_id' => $userId]);
             }
             return AuthResult::failed('User not found');
         }
 
-        if (class_exists(\Semitexa\Core\Debug\SessionDebugLog::class)) {
+        if ($hasDebugLog) {
             \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle', ['reason' => 'success', 'user_id' => $userId]);
         }
         return AuthResult::success($user);

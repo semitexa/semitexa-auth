@@ -52,7 +52,7 @@ final class AuthBootstrapper
         // Reset auth state for this request. In Swoole each coroutine has isolated context,
         // but in CLI/test mode a static fallback persists across requests — clear it here
         // so each auth check starts from a guest state.
-        $manager->setUser(null);
+        $manager->resetToGuest();
 
         if ($this->strategy === 'first_match') {
             foreach ($this->handlers as $handlerOrClass) {
@@ -61,9 +61,9 @@ final class AuthBootstrapper
                     : $this->resolveHandler($handlerOrClass);
                 try {
                     $result = $handler->handle($payload);
-                } catch (\Throwable $e) {
+                } catch (\Exception $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
-                        $manager->setUser(null);
+                        $manager->resetToGuest();
                         // Degrade to guest — public endpoint must never fail due to bad credentials
                         continue;
                     }
@@ -85,9 +85,9 @@ final class AuthBootstrapper
                     : $this->resolveHandler($handlerOrClass);
                 try {
                     $result = $handler->handle($payload);
-                } catch (\Throwable $e) {
+                } catch (\Exception $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
-                        $manager->setUser(null);
+                        $manager->resetToGuest();
                         return;
                     }
                     throw $e;
