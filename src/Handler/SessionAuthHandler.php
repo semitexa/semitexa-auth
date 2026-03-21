@@ -33,6 +33,12 @@ class SessionAuthHandler implements AuthHandlerInterface
 
     public function handle(object $payload): ?AuthResult
     {
+        if (class_exists(\Semitexa\Core\Debug\SessionDebugLog::class)) {
+            \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle.entry', [
+                'has_session' => $this->session !== null,
+                'has_user_provider' => $this->userProvider !== null,
+            ]);
+        }
         if ($this->session === null || $this->userProvider === null) {
             return null;
         }

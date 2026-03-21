@@ -6,6 +6,7 @@ namespace Semitexa\Auth;
 
 use Psr\Container\ContainerInterface;
 use Semitexa\Auth\Attribute\AsAuthHandler;
+use Semitexa\Auth\AuthenticationMode;
 use Semitexa\Core\Environment;
 use Semitexa\Auth\Context\AuthManager;
 use Semitexa\Auth\Handler\AuthHandlerInterface;
@@ -41,7 +42,7 @@ final class AuthBootstrapper
         return $this->enabled;
     }
 
-    public function handle(object $payload): void
+    public function handle(object $payload, AuthenticationMode $mode = AuthenticationMode::Mandatory): void
     {
         if (!$this->enabled) {
             return;
@@ -58,7 +59,15 @@ final class AuthBootstrapper
                 $handler = $handlerOrClass instanceof AuthHandlerInterface
                     ? $handlerOrClass
                     : $this->resolveHandler($handlerOrClass);
-                $result = $handler->handle($payload);
+                try {
+                    $result = $handler->handle($payload);
+                } catch (\Throwable $e) {
+                    if ($mode === AuthenticationMode::BestEffort) {
+                        // Degrade to guest — public endpoint must never fail due to bad credentials
+                        continue;
+                    }
+                    throw $e;
+                }
 
                 if ($result !== null && $result->success) {
                     $manager->setAuthResult($result);
@@ -73,7 +82,14 @@ final class AuthBootstrapper
                 $handler = $handlerOrClass instanceof AuthHandlerInterface
                     ? $handlerOrClass
                     : $this->resolveHandler($handlerOrClass);
-                $result = $handler->handle($payload);
+                try {
+                    $result = $handler->handle($payload);
+                } catch (\Throwable $e) {
+                    if ($mode === AuthenticationMode::BestEffort) {
+                        return;
+                    }
+                    throw $e;
+                }
 
                 if ($result === null || !$result->success) {
                     return;
