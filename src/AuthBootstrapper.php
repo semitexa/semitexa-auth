@@ -6,6 +6,7 @@ namespace Semitexa\Auth;
 
 use Psr\Container\ContainerInterface;
 use Semitexa\Auth\Attribute\AsAuthHandler;
+use Semitexa\Auth\AuthenticationMode;
 use Semitexa\Core\Environment;
 use Semitexa\Auth\Context\AuthManager;
 use Semitexa\Auth\Handler\AuthHandlerInterface;
@@ -41,7 +42,7 @@ final class AuthBootstrapper
         return $this->enabled;
     }
 
-    public function handle(object $payload): void
+    public function handle(object $payload, AuthenticationMode $mode = AuthenticationMode::Mandatory): void
     {
         if (!$this->enabled) {
             return;
@@ -51,14 +52,23 @@ final class AuthBootstrapper
         // Reset auth state for this request. In Swoole each coroutine has isolated context,
         // but in CLI/test mode a static fallback persists across requests — clear it here
         // so each auth check starts from a guest state.
-        $manager->setUser(null);
+        $manager->resetToGuest();
 
         if ($this->strategy === 'first_match') {
             foreach ($this->handlers as $handlerOrClass) {
                 $handler = $handlerOrClass instanceof AuthHandlerInterface
                     ? $handlerOrClass
                     : $this->resolveHandler($handlerOrClass);
-                $result = $handler->handle($payload);
+                try {
+                    $result = $handler->handle($payload);
+                } catch (\Exception $e) {
+                    if ($mode === AuthenticationMode::BestEffort) {
+                        $manager->resetToGuest();
+                        // Degrade to guest — public endpoint must never fail due to bad credentials
+                        continue;
+                    }
+                    throw $e;
+                }
 
                 if ($result !== null && $result->success) {
                     $manager->setAuthResult($result);
@@ -73,7 +83,15 @@ final class AuthBootstrapper
                 $handler = $handlerOrClass instanceof AuthHandlerInterface
                     ? $handlerOrClass
                     : $this->resolveHandler($handlerOrClass);
-                $result = $handler->handle($payload);
+                try {
+                    $result = $handler->handle($payload);
+                } catch (\Exception $e) {
+                    if ($mode === AuthenticationMode::BestEffort) {
+                        $manager->resetToGuest();
+                        return;
+                    }
+                    throw $e;
+                }
 
                 if ($result === null || !$result->success) {
                     return;

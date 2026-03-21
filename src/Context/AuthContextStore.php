@@ -69,12 +69,25 @@ final class AuthContextStore
         return self::$fallbackResult;
     }
 
+    public static function clear(): void
+    {
+        if (self::inCoroutine()) {
+            $ctx = Coroutine::getContext();
+            unset($ctx[self::USER_KEY], $ctx[self::RESULT_KEY]);
+
+            return;
+        }
+
+        self::$fallbackUser = null;
+        self::$fallbackResult = null;
+    }
+
     /**
      * Reset fallback state (useful in CLI/test teardown).
      */
     public static function clearFallback(): void
     {
-        self::$fallbackUser   = null;
+        self::$fallbackUser = null;
         self::$fallbackResult = null;
     }
 
