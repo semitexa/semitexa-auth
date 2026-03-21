@@ -63,6 +63,7 @@ final class AuthBootstrapper
                     $result = $handler->handle($payload);
                 } catch (\Throwable $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
+                        $manager->setUser(null);
                         // Degrade to guest — public endpoint must never fail due to bad credentials
                         continue;
                     }
@@ -86,6 +87,7 @@ final class AuthBootstrapper
                     $result = $handler->handle($payload);
                 } catch (\Throwable $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
+                        $manager->setUser(null);
                         return;
                     }
                     throw $e;
