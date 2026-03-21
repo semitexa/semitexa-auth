@@ -87,7 +87,8 @@ final class AuthContextStore
      */
     public static function clearFallback(): void
     {
-        self::clear();
+        self::$fallbackUser = null;
+        self::$fallbackResult = null;
     }
 
     private static function inCoroutine(): bool
