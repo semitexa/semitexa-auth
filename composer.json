@@ -1,6 +1,6 @@
 {
     "name": "semitexa/auth",
-    "description": "Authentication module for Semitexa Framework",
+    "description": "Semitexa Auth - user authentication with credential flows, sessions, and access tokens",
     "version": "1.0.12",
     "type": "semitexa-module",
     "license": "MIT",
@@ -22,6 +22,7 @@
         "semitexa",
         "auth",
         "authentication",
-        "sessions"
+        "sessions",
+        "tokens"
     ]
 }
