@@ -6,7 +6,6 @@ namespace Semitexa\Auth\Handler;
 
 use Semitexa\Auth\Attribute\AsAuthHandler;
 use Semitexa\Auth\Contract\UserProviderInterface;
-use Semitexa\Core\Attributes\InjectAsReadonly;
 use Semitexa\Core\Auth\AuthResult;
 use Semitexa\Core\Session\SessionInterface;
 
@@ -15,7 +14,6 @@ class SessionAuthHandler implements AuthHandlerInterface
 {
     public const SESSION_USER_KEY = '_auth_user_id';
 
-    #[InjectAsReadonly]
     protected ?UserProviderInterface $userProvider = null;
 
     /** Injected by container (mutable) or by AuthBootstrapper::resolveHandler() fallback. */
