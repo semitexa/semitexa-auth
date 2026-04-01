@@ -1,7 +1,7 @@
 {
     "name": "semitexa/auth",
     "description": "Semitexa Auth - user authentication with credential flows, sessions, and access tokens",
-    "version": "1.0.12",
+    "version": "v1.0.14",
     "type": "semitexa-module",
     "license": "MIT",
     "require": {
