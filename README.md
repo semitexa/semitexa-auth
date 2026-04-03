@@ -1,4 +1,4 @@
-# semitexa/auth
+# Semitexa Auth
 
 User authentication with credential flows, sessions, and pluggable auth handlers.
 
