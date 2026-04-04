@@ -17,23 +17,37 @@ use Semitexa\Core\Session\SessionInterface;
 
 final class AuthBootstrapper
 {
-    /** @var list<class-string<AuthHandlerInterface>> Cached discovery result (worker-scoped, survives across requests) */
-    private static ?array $discoveredHandlerClasses = null;
+    /** @var list<class-string<AuthHandlerInterface>> Cached discovery result for this bootstrapper instance */
+    private ?array $discoveredHandlerClasses = null;
 
     /** @var list<class-string<AuthHandlerInterface>|AuthHandlerInterface> */
     private array $handlers = [];
 
     private bool $enabled;
     private string $strategy;
+    private readonly ClassDiscovery $classDiscovery;
+    private readonly ?ContainerInterface $requestScopedContainer;
 
     public function __construct(
         private readonly ContainerInterface $container,
-        private readonly ClassDiscovery $classDiscovery,
-        ?EventDispatcherInterface $events = null,
-        private readonly ?ContainerInterface $requestScopedContainer = null,
+        ClassDiscovery|EventDispatcherInterface|null $classDiscovery = null,
+        EventDispatcherInterface|ContainerInterface|null $events = null,
+        ?ContainerInterface $requestScopedContainer = null,
     ) {
+        if ($classDiscovery instanceof EventDispatcherInterface) {
+            if ($events instanceof ContainerInterface) {
+                $requestScopedContainer = $events;
+            }
+
+            $classDiscovery = null;
+        } elseif ($events instanceof ContainerInterface) {
+            $requestScopedContainer = $events;
+        }
+
+        $this->classDiscovery = $classDiscovery ?? new ClassDiscovery();
+        $this->requestScopedContainer = $requestScopedContainer;
         $this->enabled  = Environment::getEnvValue('AUTH_ENABLED', 'true') !== 'false';
-        $this->strategy = Environment::getEnvValue('AUTH_STRATEGY', 'first_match');
+        $this->strategy = Environment::getEnvValue('AUTH_STRATEGY', 'first_match') ?? 'first_match';
 
         $this->discoverHandlers();
     }
@@ -127,6 +141,10 @@ final class AuthBootstrapper
             $handler = new $class();
         }
 
+        if (!$handler instanceof AuthHandlerInterface) {
+            throw new \RuntimeException("Resolved auth handler {$class} must implement " . AuthHandlerInterface::class . '.');
+        }
+
         if ($this->requestScopedContainer !== null && method_exists($handler, 'setSession')) {
             try {
                 $handler->setSession($this->requestScopedContainer->get(SessionInterface::class));
@@ -148,14 +166,13 @@ final class AuthBootstrapper
     }
 
     /**
-     * Discover handler classes marked with #[AsAuthHandler]. Uses a static cache so the
-     * expensive ClassDiscovery + reflection scan runs only once per worker, not per request.
+     * Discover handler classes marked with #[AsAuthHandler].
      * Handlers are resolved lazily in handle() so request-scoped dependencies are available.
      */
     private function discoverHandlers(): void
     {
-        if (self::$discoveredHandlerClasses !== null) {
-            $this->handlers = self::$discoveredHandlerClasses;
+        if ($this->discoveredHandlerClasses !== null) {
+            $this->handlers = $this->discoveredHandlerClasses;
             return;
         }
 
@@ -164,6 +181,10 @@ final class AuthBootstrapper
         $withPriority = [];
 
         foreach ($classes as $class) {
+            if (!class_exists($class)) {
+                continue;
+            }
+
             $reflection = new \ReflectionClass($class);
 
             if ($reflection->isAbstract() || $reflection->isInterface()) {
@@ -184,8 +205,8 @@ final class AuthBootstrapper
 
         usort($withPriority, static fn(array $a, array $b) => $a[0] <=> $b[0]);
 
-        self::$discoveredHandlerClasses = array_column($withPriority, 1);
-        $this->handlers = self::$discoveredHandlerClasses;
+        $this->discoveredHandlerClasses = array_column($withPriority, 1);
+        $this->handlers = $this->discoveredHandlerClasses;
     }
 
     /**
