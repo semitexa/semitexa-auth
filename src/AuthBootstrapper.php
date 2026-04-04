@@ -28,6 +28,7 @@ final class AuthBootstrapper
 
     public function __construct(
         private readonly ContainerInterface $container,
+        private readonly ClassDiscovery $classDiscovery,
         ?EventDispatcherInterface $events = null,
         private readonly ?ContainerInterface $requestScopedContainer = null,
     ) {
@@ -158,7 +159,7 @@ final class AuthBootstrapper
             return;
         }
 
-        $classes = ClassDiscovery::findClassesWithAttribute(AsAuthHandler::class);
+        $classes = $this->classDiscovery->findClassesWithAttribute(AsAuthHandler::class);
 
         $withPriority = [];
 
