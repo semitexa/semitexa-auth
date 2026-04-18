@@ -4,21 +4,4 @@ declare(strict_types=1);
 
 namespace Semitexa\Auth;
 
-/**
- * Controls how the authentication bootstrapper handles credentials.
- *
- * Mandatory:
- *   Used for protected endpoints. Authentication runs normally.
- *   Auth handler exceptions propagate.
- *
- * BestEffort:
- *   Used for public endpoints. Authentication is attempted but any
- *   failure — missing credentials, invalid token, or infrastructure error —
- *   silently degrades to guest context. The request is never denied solely
- *   because credentials are absent or invalid.
- */
-enum AuthenticationMode
-{
-    case Mandatory;
-    case BestEffort;
-}
+class_alias(\Semitexa\Core\Auth\AuthenticationMode::class, __NAMESPACE__ . '\\AuthenticationMode');

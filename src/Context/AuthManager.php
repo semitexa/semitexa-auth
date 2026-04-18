@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Semitexa\Auth\Context;
 
+use Semitexa\Core\Attribute\SatisfiesServiceContract;
 use Semitexa\Core\Auth\AuthContextInterface;
 use Semitexa\Core\Auth\AuthenticatableInterface;
 use Semitexa\Core\Auth\AuthResult;
@@ -14,15 +15,24 @@ use Semitexa\Core\Auth\AuthResult;
  * AuthContextStore isolates state per Swoole coroutine, so concurrent
  * HTTP requests never share auth data regardless of how many times
  * getInstance() is called within the same process.
+ *
+ * Registered as the AuthContextInterface binding so Core-owned consumers
+ * (SessionPhase, ErrorRouteDispatcher, AuthBootstrapperFactory, etc.) resolve
+ * this implementation via DI rather than importing the concrete class.
  */
-final class AuthManager implements AuthContextInterface
+#[SatisfiesServiceContract(of: AuthContextInterface::class)]
+class AuthManager implements AuthContextInterface
 {
+    /** @deprecated Use DI to obtain AuthContextInterface instead. Will be removed in next major version. */
     private static ?self $instance = null;
 
-    private function __construct()
+    public function __construct()
     {
     }
 
+    /**
+     * @deprecated Use DI to obtain AuthContextInterface instead.
+     */
     public static function getInstance(): self
     {
         return self::$instance ??= new self();
