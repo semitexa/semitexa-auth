@@ -12,6 +12,11 @@
       "Semitexa\\Auth\\": "src/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Semitexa\\Auth\\Tests\\": "tests/"
+    }
+  },
   "extra": {
     "semitexa-module": {
       "extends": null

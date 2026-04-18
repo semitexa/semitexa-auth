@@ -6,18 +6,20 @@ namespace Semitexa\Auth;
 
 use Psr\Container\ContainerInterface;
 use Semitexa\Auth\Attribute\AsAuthHandler;
-use Semitexa\Auth\AuthenticationMode;
-use Semitexa\Core\Environment;
 use Semitexa\Auth\Context\AuthManager;
 use Semitexa\Auth\Handler\AuthHandlerInterface;
+use Semitexa\Core\Auth\AuthBootstrapperInterface;
+use Semitexa\Core\Auth\AuthContextInterface;
 use Semitexa\Core\Auth\AuthResult;
+use Semitexa\Core\Auth\AuthenticationMode;
 use Semitexa\Core\Discovery\ClassDiscovery;
-use Semitexa\Core\Event\EventDispatcherInterface;
+use Semitexa\Core\Environment;
+use Semitexa\Core\Log\LoggerInterface;
 use Semitexa\Core\Session\SessionInterface;
 
-final class AuthBootstrapper
+final class AuthBootstrapper implements AuthBootstrapperInterface
 {
-    /** @var list<class-string<AuthHandlerInterface>> Cached discovery result for this bootstrapper instance */
+    /** @var list<class-string<AuthHandlerInterface>> Cached discovery result (worker-scoped) */
     private ?array $discoveredHandlerClasses = null;
 
     /** @var list<class-string<AuthHandlerInterface>|AuthHandlerInterface> */
@@ -26,26 +28,24 @@ final class AuthBootstrapper
     private bool $enabled;
     private string $strategy;
     private readonly ClassDiscovery $classDiscovery;
-    private readonly ?ContainerInterface $requestScopedContainer;
 
+    /**
+     * Explicit, non-overloaded constructor. Each parameter has a single role; no
+     * runtime argument-swapping.
+     *
+     * @param AuthContextInterface|null $authContext When null, falls back to the AuthManager
+     *        singleton. DI-constructed bootstrappers should always pass an explicit instance.
+     * @param LoggerInterface|null $logger When supplied, BestEffort degradation is logged so
+     *        public-endpoint failures are no longer silent.
+     */
     public function __construct(
         private readonly ContainerInterface $container,
-        ClassDiscovery|EventDispatcherInterface|null $classDiscovery = null,
-        EventDispatcherInterface|ContainerInterface|null $events = null,
-        ?ContainerInterface $requestScopedContainer = null,
+        private readonly ?ContainerInterface $requestScopedContainer = null,
+        ?ClassDiscovery $classDiscovery = null,
+        private readonly ?AuthContextInterface $authContext = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {
-        if ($classDiscovery instanceof EventDispatcherInterface) {
-            if ($events instanceof ContainerInterface) {
-                $requestScopedContainer = $events;
-            }
-
-            $classDiscovery = null;
-        } elseif ($events instanceof ContainerInterface) {
-            $requestScopedContainer = $events;
-        }
-
         $this->classDiscovery = $classDiscovery ?? new ClassDiscovery();
-        $this->requestScopedContainer = $requestScopedContainer;
         $this->enabled  = Environment::getEnvValue('AUTH_ENABLED', 'true') !== 'false';
         $this->strategy = Environment::getEnvValue('AUTH_STRATEGY', 'first_match') ?? 'first_match';
 
@@ -57,13 +57,13 @@ final class AuthBootstrapper
         return $this->enabled;
     }
 
-    public function handle(object $payload, AuthenticationMode $mode = AuthenticationMode::Mandatory): void
+    public function handle(object $payload, AuthenticationMode $mode = AuthenticationMode::Mandatory): ?AuthResult
     {
         if (!$this->enabled) {
-            return;
+            return null;
         }
 
-        $manager = AuthManager::getInstance();
+        $manager = $this->resolveAuthContext();
         // Reset auth state for this request. In Swoole each coroutine has isolated context,
         // but in CLI/test mode a static fallback persists across requests — clear it here
         // so each auth check starts from a guest state.
@@ -76,9 +76,10 @@ final class AuthBootstrapper
                     : $this->resolveHandler($handlerOrClass);
                 try {
                     $result = $handler->handle($payload);
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
                         $manager->resetToGuest();
+                        $this->logDegradation('Auth handler threw in BestEffort mode; degrading to guest.', $handler::class, $e);
                         // Degrade to guest — public endpoint must never fail due to bad credentials
                         continue;
                     }
@@ -87,10 +88,12 @@ final class AuthBootstrapper
 
                 if ($result !== null && $result->success) {
                     $manager->setAuthResult($result);
-                    return;
+
+                    return $result;
                 }
             }
-            return;
+
+            return null;
         }
 
         if ($this->strategy === 'all_required') {
@@ -100,24 +103,31 @@ final class AuthBootstrapper
                     : $this->resolveHandler($handlerOrClass);
                 try {
                     $result = $handler->handle($payload);
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
                         $manager->resetToGuest();
-                        return;
+                        $this->logDegradation('Auth handler threw in BestEffort mode; degrading to guest.', $handler::class, $e);
+
+                        return null;
                     }
                     throw $e;
                 }
 
                 if ($result === null || !$result->success) {
-                    return;
+                    return null;
                 }
             }
 
             $user = $manager->getUser()
                 ?? throw new \RuntimeException('No user set after all auth handlers succeeded.');
 
-            $manager->setAuthResult(AuthResult::success($user));
+            $result = AuthResult::success($user);
+            $manager->setAuthResult($result);
+
+            return $result;
         }
+
+        return null;
     }
 
     /**
@@ -131,7 +141,7 @@ final class AuthBootstrapper
             try {
                 $handler = $this->requestScopedContainer->get($class);
             } catch (\Throwable) {
-                // Handler not in container or not resolvable
+                // Handler not in container or not resolvable — try main container next.
             }
         }
         if ($handler === null && $this->container->has($class)) {
@@ -221,5 +231,32 @@ final class AuthBootstrapper
     public function getHandlers(): array
     {
         return $this->handlers;
+    }
+
+    /**
+     * Resolve the AuthContextInterface this bootstrapper should mutate.
+     * Falls back to the AuthManager singleton only when no context was injected,
+     * preserving behavior for legacy construction paths.
+     */
+    private function resolveAuthContext(): AuthContextInterface
+    {
+        if ($this->authContext !== null) {
+            return $this->authContext;
+        }
+
+        return AuthManager::getInstance();
+    }
+
+    private function logDegradation(string $message, string $handlerClass, \Throwable $e): void
+    {
+        if ($this->logger === null) {
+            return;
+        }
+
+        $this->logger->warning($message, [
+            'handler' => $handlerClass,
+            'exception' => $e::class,
+            'message' => $e->getMessage(),
+        ]);
     }
 }
