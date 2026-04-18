@@ -48,7 +48,14 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
         private readonly ?LoggerInterface $logger = null,
     ) {
         if ($requestScopedContainer instanceof ClassDiscovery) {
-            $this->requestScopedContainer = $authContext instanceof ContainerInterface ? $authContext : null;
+            $legacyRequestScopedContainer = null;
+            if ($classDiscovery instanceof ContainerInterface) {
+                $legacyRequestScopedContainer = $classDiscovery;
+            } elseif ($authContext instanceof ContainerInterface) {
+                $legacyRequestScopedContainer = $authContext;
+            }
+
+            $this->requestScopedContainer = $legacyRequestScopedContainer;
             $this->classDiscovery = $requestScopedContainer;
             $this->authContext = null;
         } else {
