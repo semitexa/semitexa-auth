@@ -75,6 +75,32 @@ final class AuthBootstrapperTest extends TestCase
         self::assertSame(\RuntimeException::class, $logger->records[0]['context']['exception']);
     }
 
+    public function testBestEffortStillPropagatesPhpErrors(): void
+    {
+        $handler = $this->makeThrowingHandler(new \TypeError('boom'));
+        $bootstrapper = $this->makeBootstrapper(authContext: new RecordingAuthContext());
+        $bootstrapper->addHandler($handler);
+
+        $this->expectException(\TypeError::class);
+        $bootstrapper->handle(new \stdClass(), AuthenticationMode::BestEffort);
+    }
+
+    public function testLegacyConstructorArgumentOrderStillWorks(): void
+    {
+        putenv('AUTH_ENABLED=true');
+        putenv('AUTH_STRATEGY=first_match');
+
+        $container = new NullContainer();
+        $legacy = new AuthBootstrapper(
+            $container,
+            new NullClassDiscovery(),
+            new \stdClass(),
+            $container,
+        );
+
+        self::assertTrue($legacy->isEnabled());
+    }
+
     public function testAllRequiredStrategyFailsIfAnyHandlerReturnsFailure(): void
     {
         $user = $this->makeUser('u-1');

@@ -28,6 +28,8 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
     private bool $enabled;
     private string $strategy;
     private readonly ClassDiscovery $classDiscovery;
+    private readonly ?ContainerInterface $requestScopedContainer;
+    private readonly ?AuthContextInterface $authContext;
 
     /**
      * Explicit, non-overloaded constructor. Each parameter has a single role; no
@@ -40,12 +42,21 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
      */
     public function __construct(
         private readonly ContainerInterface $container,
-        private readonly ?ContainerInterface $requestScopedContainer = null,
-        ?ClassDiscovery $classDiscovery = null,
-        private readonly ?AuthContextInterface $authContext = null,
+        ContainerInterface|ClassDiscovery|null $requestScopedContainer = null,
+        object|null $classDiscovery = null,
+        AuthContextInterface|ContainerInterface|null $authContext = null,
         private readonly ?LoggerInterface $logger = null,
     ) {
-        $this->classDiscovery = $classDiscovery ?? new ClassDiscovery();
+        if ($requestScopedContainer instanceof ClassDiscovery) {
+            $this->requestScopedContainer = $authContext instanceof ContainerInterface ? $authContext : null;
+            $this->classDiscovery = $requestScopedContainer;
+            $this->authContext = null;
+        } else {
+            $this->requestScopedContainer = $requestScopedContainer;
+            $this->classDiscovery = $classDiscovery instanceof ClassDiscovery ? $classDiscovery : new ClassDiscovery();
+            $this->authContext = $authContext instanceof AuthContextInterface ? $authContext : null;
+        }
+
         $this->enabled  = Environment::getEnvValue('AUTH_ENABLED', 'true') !== 'false';
         $this->strategy = Environment::getEnvValue('AUTH_STRATEGY', 'first_match') ?? 'first_match';
 
@@ -78,6 +89,10 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
                     $result = $handler->handle($payload);
                 } catch (\Throwable $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
+                        if ($e instanceof \Error) {
+                            throw $e;
+                        }
+
                         $manager->resetToGuest();
                         $this->logDegradation('Auth handler threw in BestEffort mode; degrading to guest.', $handler::class, $e);
                         // Degrade to guest — public endpoint must never fail due to bad credentials
@@ -105,6 +120,10 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
                     $result = $handler->handle($payload);
                 } catch (\Throwable $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
+                        if ($e instanceof \Error) {
+                            throw $e;
+                        }
+
                         $manager->resetToGuest();
                         $this->logDegradation('Auth handler threw in BestEffort mode; degrading to guest.', $handler::class, $e);
 
