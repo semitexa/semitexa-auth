@@ -14,6 +14,8 @@ use Semitexa\Core\Session\SessionInterface;
 #[AsAuthHandler(priority: 0)]
 class SessionAuthHandler implements AuthHandlerInterface
 {
+    private const LEGACY_PROVIDER = 'legacy';
+
     /**
      * @deprecated Kept only as the raw-key contract read by the SSR async server
      *             (packages/semitexa-ssr/.../AsyncResourceSseServer) and by
@@ -60,6 +62,14 @@ class SessionAuthHandler implements AuthHandlerInterface
 
         $segment = $this->session->getPayload(AuthSessionSegment::class);
         if (!$segment->isAuthenticated()) {
+            $legacyUserId = $this->session->get(self::SESSION_USER_KEY);
+            if (is_string($legacyUserId) && trim($legacyUserId) !== '') {
+                $segment->setAuthenticated(trim($legacyUserId), self::LEGACY_PROVIDER);
+                $this->session->setPayload($segment);
+            }
+        }
+
+        if (!$segment->isAuthenticated()) {
             if ($hasDebugLog) {
                 \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle', ['reason' => 'no_user_id_in_session']);
             }
@@ -97,5 +107,6 @@ class SessionAuthHandler implements AuthHandlerInterface
         $segment = $this->session->getPayload(AuthSessionSegment::class);
         $segment->clear();
         $this->session->setPayload($segment);
+        $this->session->remove(self::SESSION_USER_KEY);
     }
 }
