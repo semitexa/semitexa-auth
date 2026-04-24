@@ -24,12 +24,12 @@ class SessionAuthHandler implements AuthHandlerInterface
      */
     public const SESSION_USER_KEY = '_auth_user_id';
 
-    protected ?UserProviderInterface $userProvider = null;
+    protected UserProviderInterface $userProvider;
 
     /** Injected by container (mutable) or by AuthBootstrapper::resolveHandler() fallback. */
-    protected ?SessionInterface $session = null;
+    protected SessionInterface $session;
 
-    protected ?AuthSessionWriter $authWriter = null;
+    protected AuthSessionWriter $authWriter;
 
     public function setSession(SessionInterface $session): void
     {
@@ -52,11 +52,11 @@ class SessionAuthHandler implements AuthHandlerInterface
 
         if ($hasDebugLog) {
             \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle.entry', [
-                'has_session' => $this->session !== null,
-                'has_user_provider' => $this->userProvider !== null,
+                'has_session' => isset($this->session),
+                'has_user_provider' => isset($this->userProvider),
             ]);
         }
-        if ($this->session === null || $this->userProvider === null) {
+        if (!isset($this->session) || !isset($this->userProvider)) {
             return null;
         }
 
@@ -95,11 +95,11 @@ class SessionAuthHandler implements AuthHandlerInterface
 
     private function clearAuthSession(): void
     {
-        if ($this->session === null) {
+        if (!isset($this->session)) {
             return;
         }
 
-        if ($this->authWriter !== null) {
+        if (isset($this->authWriter)) {
             $this->authWriter->clear($this->session);
             return;
         }
