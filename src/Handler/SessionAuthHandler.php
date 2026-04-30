@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Semitexa\Auth\Handler;
 
 use Semitexa\Auth\Attribute\AsAuthHandler;
-use Semitexa\Auth\Contract\UserProviderInterface;
+use Semitexa\Auth\Domain\Contract\UserProviderInterface;
 use Semitexa\Auth\Session\AuthSessionSegment;
 use Semitexa\Auth\Session\AuthSessionWriter;
 use Semitexa\Core\Auth\AuthResult;

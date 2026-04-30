@@ -191,7 +191,7 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
 
         if (method_exists($handler, 'setUserProvider')) {
             try {
-                $provider = $this->container->get(\Semitexa\Auth\Contract\UserProviderInterface::class);
+                $provider = $this->container->get(\Semitexa\Auth\Domain\Contract\UserProviderInterface::class);
                 $handler->setUserProvider($provider);
             } catch (\Throwable) {
                 // UserProvider not registered; handler will bail out gracefully

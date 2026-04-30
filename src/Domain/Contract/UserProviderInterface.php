@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Semitexa\Auth\Contract;
+namespace Semitexa\Auth\Domain\Contract;
 
 use Semitexa\Core\Auth\AuthenticatableInterface;
 
