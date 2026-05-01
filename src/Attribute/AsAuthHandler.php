@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Semitexa\Auth\Attribute;
 
+use Semitexa\Auth\Domain\Contract\AuthHandlerInterface;
+
 use Attribute;
 
 /**

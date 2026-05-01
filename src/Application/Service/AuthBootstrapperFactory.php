@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Semitexa\Auth;
+namespace Semitexa\Auth\Application\Service;
 
 use Psr\Container\ContainerInterface;
 use Semitexa\Auth\Context\AuthManager;
@@ -19,7 +19,7 @@ use Semitexa\Core\Log\LoggerInterface;
  *
  * Registered in the DI container as the factory for AuthBootstrapperInterface so
  * Core's LifecycleComponentRegistry can construct the bootstrapper without ever
- * importing the concrete Semitexa\Auth\AuthBootstrapper class.
+ * importing the concrete Semitexa\Auth\Application\Service\AuthBootstrapper class.
  */
 #[SatisfiesServiceContract(of: AuthBootstrapperFactoryInterface::class)]
 final class AuthBootstrapperFactory implements AuthBootstrapperFactoryInterface

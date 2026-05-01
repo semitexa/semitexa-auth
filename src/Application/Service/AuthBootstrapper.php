@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Semitexa\Auth;
+namespace Semitexa\Auth\Application\Service;
 
 use Psr\Container\ContainerInterface;
 use Semitexa\Auth\Attribute\AsAuthHandler;
 use Semitexa\Auth\Context\AuthManager;
-use Semitexa\Auth\Handler\AuthHandlerInterface;
+use Semitexa\Auth\Domain\Contract\AuthHandlerInterface;
 use Semitexa\Core\Auth\AuthBootstrapperInterface;
 use Semitexa\Core\Auth\AuthContextInterface;
 use Semitexa\Core\Auth\AuthResult;

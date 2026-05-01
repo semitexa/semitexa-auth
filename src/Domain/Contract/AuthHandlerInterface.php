@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Semitexa\Auth\Handler;
+namespace Semitexa\Auth\Domain\Contract;
 
 interface AuthHandlerInterface
 {
