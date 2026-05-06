@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Semitexa\Auth\Session;
+namespace Semitexa\Auth\Application\Service;
 
 use Semitexa\Core\Session\Attribute\SessionSegment;
 

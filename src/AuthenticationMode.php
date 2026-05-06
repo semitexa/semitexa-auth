@@ -4,4 +4,11 @@ declare(strict_types=1);
 
 namespace Semitexa\Auth;
 
-class_alias(\Semitexa\Core\Auth\AuthenticationMode::class, __NAMESPACE__ . '\\AuthenticationMode');
+use Semitexa\Core\Auth\AuthenticationMode as CoreAuthenticationMode;
+
+/**
+ * @deprecated Use Semitexa\Core\Auth\AuthenticationMode instead.
+ */
+if (!class_exists(AuthenticationMode::class, false)) {
+    class_alias(CoreAuthenticationMode::class, AuthenticationMode::class);
+}

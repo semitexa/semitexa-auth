@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Semitexa\Auth\Session;
+namespace Semitexa\Auth\Application\Service;
 
-use Semitexa\Auth\Handler\SessionAuthHandler;
+use Semitexa\Auth\Application\Service\SessionAuthHandler;
 use Semitexa\Core\Attribute\AsService;
 use Semitexa\Core\Session\SessionInterface;
 

@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Semitexa\Auth\Handler;
+namespace Semitexa\Auth\Application\Service;
+
+use Semitexa\Auth\Domain\Contract\AuthHandlerInterface;
 
 use Semitexa\Auth\Attribute\AsAuthHandler;
-use Semitexa\Auth\Contract\UserProviderInterface;
-use Semitexa\Auth\Session\AuthSessionSegment;
-use Semitexa\Auth\Session\AuthSessionWriter;
+use Semitexa\Auth\Domain\Contract\UserProviderInterface;
+use Semitexa\Auth\Application\Service\AuthSessionSegment;
+use Semitexa\Auth\Application\Service\AuthSessionWriter;
 use Semitexa\Core\Auth\AuthResult;
 use Semitexa\Core\Session\SessionInterface;
 
