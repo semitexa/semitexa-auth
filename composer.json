@@ -1,32 +1,33 @@
 {
-  "name": "semitexa/auth",
-  "description": "Semitexa Auth - user authentication with credential flows, sessions, and access tokens",
-  "type": "semitexa-module",
-  "license": "MIT",
-  "require": {
-    "php": "^8.4",
-    "semitexa/core": "*"
-  },
-  "autoload": {
-    "psr-4": {
-      "Semitexa\\Auth\\": "src/"
-    }
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "Semitexa\\Auth\\Tests\\": "tests/"
-    }
-  },
-  "extra": {
-    "semitexa-module": {
-      "extends": null
-    }
-  },
-  "keywords": [
-    "semitexa",
-    "auth",
-    "authentication",
-    "sessions",
-    "tokens"
-  ]
+    "name": "semitexa/auth",
+    "description": "Semitexa Auth - user authentication with credential flows, sessions, and access tokens",
+    "type": "semitexa-module",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4",
+        "semitexa/core": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Semitexa\\Auth\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Semitexa\\Auth\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "semitexa-module": {
+            "extends": null
+        }
+    },
+    "keywords": [
+        "semitexa",
+        "auth",
+        "authentication",
+        "sessions",
+        "tokens"
+    ],
+    "version": "v1.0.15"
 }
