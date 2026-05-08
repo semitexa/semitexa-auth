@@ -28,5 +28,6 @@
         "authentication",
         "sessions",
         "tokens"
-    ]
+    ],
+    "version": "v1.0.16"
 }
