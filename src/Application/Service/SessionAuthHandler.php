@@ -50,14 +50,6 @@ class SessionAuthHandler implements AuthHandlerInterface
 
     public function handle(object $payload): ?AuthResult
     {
-        $hasDebugLog = class_exists(\Semitexa\Core\Debug\SessionDebugLog::class);
-
-        if ($hasDebugLog) {
-            \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle.entry', [
-                'has_session' => isset($this->session),
-                'has_user_provider' => isset($this->userProvider),
-            ]);
-        }
         if (!isset($this->session) || !isset($this->userProvider)) {
             return null;
         }
@@ -72,9 +64,6 @@ class SessionAuthHandler implements AuthHandlerInterface
         }
 
         if (!$segment->isAuthenticated()) {
-            if ($hasDebugLog) {
-                \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle', ['reason' => 'no_user_id_in_session']);
-            }
             return null;
         }
 
@@ -83,15 +72,9 @@ class SessionAuthHandler implements AuthHandlerInterface
 
         if ($user === null) {
             $this->clearAuthSession();
-            if ($hasDebugLog) {
-                \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle', ['reason' => 'user_not_found', 'user_id' => $userId]);
-            }
             return AuthResult::failed('User not found');
         }
 
-        if ($hasDebugLog) {
-            \Semitexa\Core\Debug\SessionDebugLog::log('SessionAuthHandler.handle', ['reason' => 'success', 'user_id' => $userId]);
-        }
         return AuthResult::success($user);
     }
 
