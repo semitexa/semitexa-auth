@@ -19,8 +19,18 @@ use Semitexa\Core\Session\SessionInterface;
 
 final class AuthBootstrapper implements AuthBootstrapperInterface
 {
-    /** @var list<class-string<AuthHandlerInterface>> Cached discovery result (worker-scoped) */
-    private ?array $discoveredHandlerClasses = null;
+    /**
+     * Discovered handler classes per ClassDiscovery instance (worker-scoped).
+     *
+     * Core builds a bootstrapper per request (it carries the request-scoped
+     * container), but the handler list is a function of the classmap only, so
+     * it is computed once per ClassDiscovery — the worker's shared instance in
+     * production. Weakly keyed: a discarded discovery (tests, a rebuilt
+     * container) drops its entry and a new one re-discovers.
+     *
+     * @var \WeakMap<ClassDiscovery, list<class-string<AuthHandlerInterface>>>|null
+     */
+    private static ?\WeakMap $discoveredHandlerClasses = null;
 
     /** @var list<class-string<AuthHandlerInterface>|AuthHandlerInterface> */
     private array $handlers = [];
@@ -207,8 +217,10 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
      */
     private function discoverHandlers(): void
     {
-        if ($this->discoveredHandlerClasses !== null) {
-            $this->handlers = $this->discoveredHandlerClasses;
+        self::$discoveredHandlerClasses ??= new \WeakMap();
+        $cached = self::$discoveredHandlerClasses[$this->classDiscovery] ?? null;
+        if ($cached !== null) {
+            $this->handlers = $cached;
             return;
         }
 
@@ -241,8 +253,10 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
 
         usort($withPriority, static fn(array $a, array $b) => $a[0] <=> $b[0]);
 
-        $this->discoveredHandlerClasses = array_column($withPriority, 1);
-        $this->handlers = $this->discoveredHandlerClasses;
+        /** @var list<class-string<AuthHandlerInterface>> $discovered */
+        $discovered = array_column($withPriority, 1);
+        self::$discoveredHandlerClasses[$this->classDiscovery] = $discovered;
+        $this->handlers = $discovered;
     }
 
     /**
