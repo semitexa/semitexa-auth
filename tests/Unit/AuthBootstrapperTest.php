@@ -23,6 +23,16 @@ use Semitexa\Core\Log\LoggerInterface;
  */
 final class AuthBootstrapperTest extends TestCase
 {
+    private string|false $previousAuthEnabled = false;
+    private string|false $previousAuthStrategy = false;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->previousAuthEnabled = getenv('AUTH_ENABLED');
+        $this->previousAuthStrategy = getenv('AUTH_STRATEGY');
+    }
+
     public function testImplementsCoreInterface(): void
     {
         $bootstrapper = $this->makeBootstrapper();
@@ -100,7 +110,10 @@ final class AuthBootstrapperTest extends TestCase
 
         // A handler added to one request's bootstrapper does not leak into the cache.
         $first->addHandler($this->makeHandler(null));
-        self::assertCount(2, (new AuthBootstrapper(container: $container, classDiscovery: $discovery))->getHandlers());
+        self::assertSame(
+            [EarlyAuthHandlerFixture::class, LateAuthHandlerFixture::class],
+            (new AuthBootstrapper(container: $container, classDiscovery: $discovery))->getHandlers(),
+        );
 
         $other = new CountingClassDiscovery([]);
         self::assertSame([], (new AuthBootstrapper(container: $container, classDiscovery: $other))->getHandlers());
@@ -154,8 +167,8 @@ final class AuthBootstrapperTest extends TestCase
 
     protected function tearDown(): void
     {
-        putenv('AUTH_ENABLED');
-        putenv('AUTH_STRATEGY');
+        putenv($this->previousAuthEnabled === false ? 'AUTH_ENABLED' : 'AUTH_ENABLED=' . $this->previousAuthEnabled);
+        putenv($this->previousAuthStrategy === false ? 'AUTH_STRATEGY' : 'AUTH_STRATEGY=' . $this->previousAuthStrategy);
         parent::tearDown();
     }
 
