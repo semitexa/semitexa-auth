@@ -28,6 +28,10 @@ final class AuthSessionWriter
         string $provider,
         ?int $authenticatedAt = null,
     ): void {
+        // Compare in the form the segment stores (it trims), or a padded but
+        // identical id would count as a new identity and rotate the session.
+        $userId = trim($userId);
+        $provider = trim($provider);
         $segment = $session->getPayload(AuthSessionSegment::class);
 
         if (
@@ -57,7 +61,12 @@ final class AuthSessionWriter
         $segment = $session->getPayload(AuthSessionSegment::class);
         // Logout is a privilege change too: the id the user was known by must
         // not stay valid for whoever holds it next.
-        if ($segment->getUserId() !== null) {
+        // A session signed in only through the legacy top-level key (no
+        // hydrated segment) is still an authenticated one and rotates too.
+        if (
+            $segment->getUserId() !== null
+            || $session->has(SessionAuthHandler::SESSION_USER_KEY)
+        ) {
             $session->regenerate();
         }
         $segment->clear();

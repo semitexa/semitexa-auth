@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Semitexa\Auth\Application\Service\AuthSessionSegment;
 use Semitexa\Auth\Application\Service\AuthSessionWriter;
+use Semitexa\Auth\Application\Service\SessionAuthHandler;
 use Semitexa\Core\Session\Session;
 use Semitexa\Core\Session\SessionHandlerInterface;
 
@@ -58,6 +59,37 @@ final class AuthSessionWriterTest extends TestCase
         $session->save();
 
         self::assertNotSame($afterLogin, $session->getId());
+    }
+
+    #[Test]
+    public function a_padded_copy_of_the_same_identity_keeps_the_session_id(): void
+    {
+        $session = $this->session();
+        $writer = new AuthSessionWriter();
+        $writer->setAuthenticated($session, 'user-1', 'password');
+        $session->save();
+        $afterLogin = $session->getId();
+
+        $writer->setAuthenticated($session, ' user-1 ', ' password ');
+        $session->save();
+
+        self::assertSame($afterLogin, $session->getId());
+        self::assertSame('user-1', $session->get(SessionAuthHandler::SESSION_USER_KEY));
+    }
+
+    #[Test]
+    public function logging_out_a_legacy_only_session_rotates_the_session_id(): void
+    {
+        // Signed in through the top-level key alone, with no auth segment.
+        $session = $this->session();
+        $session->set(SessionAuthHandler::SESSION_USER_KEY, 'user-1');
+        $session->save();
+
+        (new AuthSessionWriter())->clear($session);
+        $session->save();
+
+        self::assertNotSame(self::PLANTED_ID, $session->getId());
+        self::assertFalse($session->has(SessionAuthHandler::SESSION_USER_KEY));
     }
 
     #[Test]
