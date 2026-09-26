@@ -50,6 +50,31 @@ final class AuthSessionSegment
         $this->authenticatedAt = $authenticatedAt ?? time();
     }
 
+    /**
+     * Session hydration only. The session restores a segment through one-
+     * argument setters named after its keys; without these, every request read
+     * back an EMPTY segment, so the original sign-in time was lost and auth
+     * fell through to the legacy `_auth_user_id` key. Use setAuthenticated().
+     *
+     * @internal
+     */
+    public function setUserId(?string $userId): void
+    {
+        $this->userId = $userId;
+    }
+
+    /** @internal session hydration only — see setUserId(). */
+    public function setProvider(?string $provider): void
+    {
+        $this->provider = $provider;
+    }
+
+    /** @internal session hydration only — see setUserId(). */
+    public function setAuthenticatedAt(?int $authenticatedAt): void
+    {
+        $this->authenticatedAt = $authenticatedAt;
+    }
+
     public function clear(): void
     {
         $this->userId = null;

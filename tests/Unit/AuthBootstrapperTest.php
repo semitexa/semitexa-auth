@@ -23,6 +23,16 @@ use Semitexa\Core\Log\LoggerInterface;
  */
 final class AuthBootstrapperTest extends TestCase
 {
+    private string|false $previousAuthEnabled = false;
+    private string|false $previousAuthStrategy = false;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->previousAuthEnabled = getenv('AUTH_ENABLED');
+        $this->previousAuthStrategy = getenv('AUTH_STRATEGY');
+    }
+
     public function testImplementsCoreInterface(): void
     {
         $bootstrapper = $this->makeBootstrapper();
@@ -85,6 +95,31 @@ final class AuthBootstrapperTest extends TestCase
         $bootstrapper->handle(new \stdClass(), AuthenticationMode::BestEffort);
     }
 
+    public function testHandlerDiscoveryRunsOncePerClassDiscovery(): void
+    {
+        putenv('AUTH_ENABLED=true');
+        $container = new NullContainer();
+        $discovery = new CountingClassDiscovery([LateAuthHandlerFixture::class, EarlyAuthHandlerFixture::class]);
+
+        $first = new AuthBootstrapper(container: $container, classDiscovery: $discovery);
+        $second = new AuthBootstrapper(container: $container, classDiscovery: $discovery);
+
+        self::assertSame(1, $discovery->calls, 'Per-request bootstrappers must reuse the worker discovery result.');
+        self::assertSame([EarlyAuthHandlerFixture::class, LateAuthHandlerFixture::class], $first->getHandlers());
+        self::assertSame($first->getHandlers(), $second->getHandlers());
+
+        // A handler added to one request's bootstrapper does not leak into the cache.
+        $first->addHandler($this->makeHandler(null));
+        self::assertSame(
+            [EarlyAuthHandlerFixture::class, LateAuthHandlerFixture::class],
+            (new AuthBootstrapper(container: $container, classDiscovery: $discovery))->getHandlers(),
+        );
+
+        $other = new CountingClassDiscovery([]);
+        self::assertSame([], (new AuthBootstrapper(container: $container, classDiscovery: $other))->getHandlers());
+        self::assertSame(1, $other->calls);
+    }
+
     public function testLegacyConstructorArgumentOrderStillWorks(): void
     {
         putenv('AUTH_ENABLED=true');
@@ -132,8 +167,8 @@ final class AuthBootstrapperTest extends TestCase
 
     protected function tearDown(): void
     {
-        putenv('AUTH_ENABLED');
-        putenv('AUTH_STRATEGY');
+        putenv($this->previousAuthEnabled === false ? 'AUTH_ENABLED' : 'AUTH_ENABLED=' . $this->previousAuthEnabled);
+        putenv($this->previousAuthStrategy === false ? 'AUTH_STRATEGY' : 'AUTH_STRATEGY=' . $this->previousAuthStrategy);
         parent::tearDown();
     }
 
@@ -247,4 +282,32 @@ final class NullClassDiscovery extends \Semitexa\Core\Discovery\ClassDiscovery
 {
     public function initialize(): void {}
     public function findClassesWithAttribute(string $attributeClass): array { return []; }
+}
+
+final class CountingClassDiscovery extends \Semitexa\Core\Discovery\ClassDiscovery
+{
+    public int $calls = 0;
+
+    /** @param list<class-string> $classes */
+    public function __construct(private readonly array $classes) {}
+
+    public function initialize(): void {}
+
+    public function findClassesWithAttribute(string $attributeClass): array
+    {
+        $this->calls++;
+        return $this->classes;
+    }
+}
+
+#[\Semitexa\Auth\Attribute\AsAuthHandler(priority: 20)]
+final class LateAuthHandlerFixture implements AuthHandlerInterface
+{
+    public function handle(object $payload): ?AuthResult { return null; }
+}
+
+#[\Semitexa\Auth\Attribute\AsAuthHandler(priority: 5)]
+final class EarlyAuthHandlerFixture implements AuthHandlerInterface
+{
+    public function handle(object $payload): ?AuthResult { return null; }
 }
