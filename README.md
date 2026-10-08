@@ -2,6 +2,10 @@
 
 User authentication with credential flows, sessions, and pluggable auth handlers.
 
+## Install
+
+Included in every project created by the installer (https://semitexa.com/install.sh).
+
 ## Purpose
 
 Manages request-level authentication. Discovers auth handlers via `#[AsAuthHandler]`, chains them per strategy (first_match, collect, required), and stores the authenticated principal in coroutine-safe context.
@@ -22,3 +26,7 @@ Depends on `semitexa/core`. Depended on by `semitexa/authorization`, `semitexa/a
 ## Notes
 
 Auth resolves identity only. Access control decisions are handled by `semitexa/authorization`.
+
+## Docs
+
+https://semitexa.com/docs/auth
