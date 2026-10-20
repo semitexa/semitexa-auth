@@ -6,6 +6,7 @@ namespace Semitexa\Auth\Context;
 
 use Semitexa\Core\Auth\AuthenticatableInterface;
 use Semitexa\Core\Auth\AuthResult;
+use Semitexa\Core\Lifecycle\CarriedContext;
 use Semitexa\Core\Lifecycle\PerRequestStateRegistry;
 use Swoole\Coroutine;
 
@@ -117,6 +118,8 @@ final class AuthContextStore
         if (self::$registered) {
             return;
         }
+        // Work run after the response (an Async handler) gets the request's user.
+        CarriedContext::carry(self::USER_KEY, self::RESULT_KEY);
         self::$registered = true;
         PerRequestStateRegistry::register(
             self::REGISTRY_NAME,
