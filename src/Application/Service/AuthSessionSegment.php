@@ -12,6 +12,8 @@ final class AuthSessionSegment
     private ?string $userId = null;
     private ?string $provider = null;
     private ?int $authenticatedAt = null;
+    /** The user's credential stamp at sign-in (CredentialStampedInterface); null when it has none. */
+    private ?string $credentialStamp = null;
 
     public function getUserId(): ?string
     {
@@ -28,12 +30,17 @@ final class AuthSessionSegment
         return $this->authenticatedAt;
     }
 
+    public function getCredentialStamp(): ?string
+    {
+        return $this->credentialStamp;
+    }
+
     public function isAuthenticated(): bool
     {
         return $this->userId !== null && $this->userId !== '';
     }
 
-    public function setAuthenticated(string $userId, string $provider, ?int $authenticatedAt = null): void
+    public function setAuthenticated(string $userId, string $provider, ?int $authenticatedAt = null, ?string $credentialStamp = null): void
     {
         $userId = trim($userId);
         $provider = trim($provider);
@@ -48,6 +55,7 @@ final class AuthSessionSegment
         $this->userId = $userId;
         $this->provider = $provider;
         $this->authenticatedAt = $authenticatedAt ?? time();
+        $this->credentialStamp = $credentialStamp;
     }
 
     /**
@@ -75,10 +83,17 @@ final class AuthSessionSegment
         $this->authenticatedAt = $authenticatedAt;
     }
 
+    /** @internal session hydration, and SessionAuthHandler recording the stamp it first sees. */
+    public function setCredentialStamp(?string $credentialStamp): void
+    {
+        $this->credentialStamp = $credentialStamp;
+    }
+
     public function clear(): void
     {
         $this->userId = null;
         $this->provider = null;
         $this->authenticatedAt = null;
+        $this->credentialStamp = null;
     }
 }

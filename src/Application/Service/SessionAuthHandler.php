@@ -9,6 +9,7 @@ use Semitexa\Auth\Domain\Contract\AuthHandlerInterface;
 use Semitexa\Auth\Attribute\AsAuthHandler;
 use Semitexa\Auth\Domain\Contract\UserProviderInterface;
 use Semitexa\Auth\Application\Service\AuthSessionSegment;
+use Semitexa\Auth\Domain\Contract\CredentialStampedInterface;
 use Semitexa\Auth\Application\Service\AuthSessionWriter;
 use Semitexa\Core\Auth\AuthResult;
 use Semitexa\Core\Session\SessionInterface;
@@ -73,6 +74,20 @@ class SessionAuthHandler implements AuthHandlerInterface
         if ($user === null) {
             $this->clearAuthSession();
             return AuthResult::failed('User not found');
+        }
+
+        // Credentials changed since this session signed in: it is over. A
+        // session that recorded no stamp (signed in before stamps, or by a
+        // caller that names none) gets the current one now.
+        if ($user instanceof CredentialStampedInterface) {
+            $stamp = $user->credentialStamp();
+            if ($segment->getCredentialStamp() === null) {
+                $segment->setCredentialStamp($stamp);
+                $this->session->setPayload($segment);
+            } elseif (!hash_equals($segment->getCredentialStamp(), $stamp)) {
+                $this->clearAuthSession();
+                return AuthResult::failed('Credentials changed');
+            }
         }
 
         return AuthResult::success($user);

@@ -108,6 +108,76 @@ final class AuthSessionWriterTest extends TestCase
         self::assertSame(1_700_000_000, $segment->getAuthenticatedAt());
     }
 
+    /** A session cookie stolen before a password change kept working after it. */
+    #[Test]
+    public function a_session_signed_in_with_older_credentials_is_over(): void
+    {
+        $handler = $this->handler();
+        $login = new Session(self::PLANTED_ID, $handler, 'semitexa_session');
+        (new AuthSessionWriter())->setAuthenticated($login, 'user-1', 'password', credentialStamp: '1');
+        $login->save();
+
+        $user = new StampedUser('user-1', '1');
+        self::assertTrue($this->authenticate(new Session($login->getId(), $handler, 'semitexa_session'), $user)->success);
+
+        $user->stamp = '2'; // a new password
+        $after = new Session($login->getId(), $handler, 'semitexa_session');
+        self::assertFalse($this->authenticate($after, $user)->success);
+        self::assertFalse($after->getPayload(AuthSessionSegment::class)->isAuthenticated(), 'and signed out');
+    }
+
+    /** Signed in by a caller that names no stamp: the first request records it. */
+    #[Test]
+    public function a_session_without_a_stamp_gets_the_current_one(): void
+    {
+        $handler = $this->handler();
+        $login = new Session(self::PLANTED_ID, $handler, 'semitexa_session');
+        (new AuthSessionWriter())->setAuthenticated($login, 'user-1', 'password');
+        $login->save();
+        $user = new StampedUser('user-1', '7');
+
+        $first = new Session($login->getId(), $handler, 'semitexa_session');
+        self::assertTrue($this->authenticate($first, $user)->success);
+        $first->save();
+        $user->stamp = '8';
+
+        self::assertFalse($this->authenticate(new Session($login->getId(), $handler, 'semitexa_session'), $user)->success);
+    }
+
+    /** A sign-in that names no stamp gets the user's own at once, not on the session's next request. */
+    #[Test]
+    public function a_sign_in_without_a_stamp_takes_the_user_s_own(): void
+    {
+        $user = new StampedUser('user-1', '4');
+        $writer = new AuthSessionWriter();
+        (new \ReflectionProperty(AuthSessionWriter::class, 'users'))->setValue($writer, new class ($user) implements \Semitexa\Auth\Domain\Contract\UserProviderInterface {
+            public function __construct(private StampedUser $user) {}
+            public function findById(string $id): ?\Semitexa\Core\Auth\AuthenticatableInterface { return $this->user; }
+        });
+        $session = $this->session();
+
+        $writer->setAuthenticated($session, 'user-1', 'password');
+
+        self::assertSame('4', $session->getPayload(AuthSessionSegment::class)->getCredentialStamp());
+    }
+
+    private function authenticate(Session $session, StampedUser $user): \Semitexa\Core\Auth\AuthResult
+    {
+        $auth = new SessionAuthHandler();
+        $provider = new class ($user) implements \Semitexa\Auth\Domain\Contract\UserProviderInterface {
+            public function __construct(private StampedUser $user) {}
+            public function findById(string $id): ?\Semitexa\Core\Auth\AuthenticatableInterface { return $id === $this->user->getId() ? $this->user : null; }
+        };
+        foreach (['userProvider' => $provider, 'session' => $session, 'authWriter' => new AuthSessionWriter()] as $property => $value) {
+            (new \ReflectionProperty(SessionAuthHandler::class, $property))->setValue($auth, $value);
+        }
+
+        $result = $auth->handle(new \stdClass());
+        self::assertNotNull($result);
+
+        return $result;
+    }
+
     private function session(): Session
     {
         return new Session(self::PLANTED_ID, $this->handler(), 'semitexa_session');
@@ -135,4 +205,13 @@ final class AuthSessionWriterTest extends TestCase
             }
         };
     }
+}
+
+final class StampedUser implements \Semitexa\Core\Auth\AuthenticatableInterface, \Semitexa\Auth\Domain\Contract\CredentialStampedInterface
+{
+    public function __construct(private string $id, public string $stamp) {}
+    public function getId(): string { return $this->id; }
+    public function getAuthIdentifierName(): string { return 'id'; }
+    public function getAuthIdentifier(): string { return $this->id; }
+    public function credentialStamp(): string { return $this->stamp; }
 }
