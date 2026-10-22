@@ -161,6 +161,28 @@ final class AuthSessionWriterTest extends TestCase
         self::assertSame('4', $session->getPayload(AuthSessionSegment::class)->getCredentialStamp());
     }
 
+    /**
+     * A provider whose users have no stamp (the demo's Google sign-in, which
+     * signs in again on every request) cost a user lookup per request.
+     */
+    #[Test]
+    public function signing_the_same_identity_in_again_looks_nobody_up(): void
+    {
+        $writer = new AuthSessionWriter();
+        $lookups = new \ArrayObject();
+        (new \ReflectionProperty(AuthSessionWriter::class, 'users'))->setValue($writer, new class ($lookups) implements \Semitexa\Auth\Domain\Contract\UserProviderInterface {
+            public function __construct(private \ArrayObject $lookups) {}
+            public function findById(string $id): ?\Semitexa\Core\Auth\AuthenticatableInterface { $this->lookups->append($id); return null; }
+        });
+        $session = $this->session();
+
+        $writer->setAuthenticated($session, 'g-1', 'google');
+        $writer->setAuthenticated($session, 'g-1', 'google');
+        $writer->setAuthenticated($session, 'g-1', 'google');
+
+        self::assertSame(['g-1'], $lookups->getArrayCopy(), 'once, for the new identity');
+    }
+
     private function authenticate(Session $session, StampedUser $user): \Semitexa\Core\Auth\AuthResult
     {
         $auth = new SessionAuthHandler();

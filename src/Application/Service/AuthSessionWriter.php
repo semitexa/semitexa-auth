@@ -66,10 +66,15 @@ final class AuthSessionWriter
         // The same identity signed in again without naming a stamp keeps the
         // one it had: SessionAuthHandler would otherwise record whatever the
         // user's stamp is next, after a password change included.
-        if ($credentialStamp === null && $segment->getUserId() === $userId) {
+        $sameIdentity = $segment->getUserId() === $userId;
+        if ($credentialStamp === null && $sameIdentity) {
             $credentialStamp = $segment->getCredentialStamp();
         }
-        if ($credentialStamp === null && isset($this->users)) {
+        // Looked up for a new identity only. A provider whose users have no
+        // stamp (the demo's Google sign-in, which signs in again on every
+        // request) cost a user lookup per request; a stamped user's session
+        // that has none yet gets it from SessionAuthHandler on its next read.
+        if ($credentialStamp === null && !$sameIdentity && isset($this->users)) {
             $found = $this->users->findById($userId);
             $credentialStamp = $found instanceof CredentialStampedInterface ? $found->credentialStamp() : null;
         }
