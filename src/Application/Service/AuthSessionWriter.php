@@ -34,6 +34,14 @@ final class AuthSessionWriter
     #[InjectAsReadonly(optional: true)]
     protected UserProviderInterface $users;
 
+    /**
+     * $credentialStamp: a sign-in that proved the credential (a password, a
+     * reset link) passes the user's current one. Without it, a new identity
+     * gets the user's own from the provider, and the identity the session
+     * already holds keeps the stamp it had: a sign-in that proves nothing
+     * (an SSO refresh, remember-me) must not carry a session across a
+     * password change.
+     */
     public function setAuthenticated(
         SessionInterface $session,
         string $userId,

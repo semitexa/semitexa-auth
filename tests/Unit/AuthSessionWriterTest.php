@@ -162,6 +162,31 @@ final class AuthSessionWriterTest extends TestCase
     }
 
     /**
+     * The same identity signed in again keeps its stamp unless the sign-in
+     * names one: a refresh that proves nothing must not carry the session
+     * across a password change, and a password sign-in passes the new one.
+     */
+    #[Test]
+    public function the_same_identity_keeps_its_stamp_unless_the_sign_in_names_the_new_one(): void
+    {
+        $user = new StampedUser('user-1', '4');
+        $writer = new AuthSessionWriter();
+        (new \ReflectionProperty(AuthSessionWriter::class, 'users'))->setValue($writer, new class ($user) implements \Semitexa\Auth\Domain\Contract\UserProviderInterface {
+            public function __construct(private StampedUser $user) {}
+            public function findById(string $id): ?\Semitexa\Core\Auth\AuthenticatableInterface { return $this->user; }
+        });
+        $session = $this->session();
+        $writer->setAuthenticated($session, 'user-1', 'password');
+        $user->stamp = '5';
+
+        $writer->setAuthenticated($session, 'user-1', 'sso');
+        self::assertSame('4', $session->getPayload(AuthSessionSegment::class)->getCredentialStamp(), 'a refresh does not adopt the new password');
+
+        $writer->setAuthenticated($session, 'user-1', 'sso', credentialStamp: $user->credentialStamp());
+        self::assertSame('5', $session->getPayload(AuthSessionSegment::class)->getCredentialStamp());
+    }
+
+    /**
      * A provider whose users have no stamp (the demo's Google sign-in, which
      * signs in again on every request) cost a user lookup per request.
      */
