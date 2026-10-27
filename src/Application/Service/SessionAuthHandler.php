@@ -76,17 +76,19 @@ class SessionAuthHandler implements AuthHandlerInterface
             return AuthResult::failed('User not found');
         }
 
-        // Credentials changed since this session signed in: it is over. A
-        // session that recorded no stamp (signed in before stamps, or by a
-        // caller that names none) gets the current one now.
+        // Credentials changed since this session signed in: it is over. So is
+        // a stamped user's session that recorded no stamp: every sign-in
+        // records one (AuthSessionWriter looks it up when the caller names
+        // none), so only a session from before stamps, or one taken over from
+        // the legacy key, has none, and nothing tells whether the password
+        // changed since. Given the current stamp here, a cookie stolen before
+        // a password change outlived it whenever its first request came
+        // after the change. The cost is one sign-in for those sessions.
         if ($user instanceof CredentialStampedInterface) {
-            $stamp = $user->credentialStamp();
-            if ($segment->getCredentialStamp() === null) {
-                $segment->setCredentialStamp($stamp);
-                $this->session->setPayload($segment);
-            } elseif (!hash_equals($segment->getCredentialStamp(), $stamp)) {
+            $recorded = $segment->getCredentialStamp();
+            if ($recorded === null || !hash_equals($recorded, $user->credentialStamp())) {
                 $this->clearAuthSession();
-                return AuthResult::failed('Credentials changed');
+                return AuthResult::failed($recorded === null ? 'Credentials not recorded' : 'Credentials changed');
             }
         }
 

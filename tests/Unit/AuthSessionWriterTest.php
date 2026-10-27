@@ -126,22 +126,26 @@ final class AuthSessionWriterTest extends TestCase
         self::assertFalse($after->getPayload(AuthSessionSegment::class)->isAuthenticated(), 'and signed out');
     }
 
-    /** Signed in by a caller that names no stamp: the first request records it. */
+    /**
+     * A stamped user's session with no stamp (from before stamps) was given
+     * the current one on its first request: a cookie stolen before a password
+     * change, first used after it, adopted the new password and lived on.
+     */
     #[Test]
-    public function a_session_without_a_stamp_gets_the_current_one(): void
+    public function a_stamped_user_s_session_without_a_stamp_is_over(): void
     {
         $handler = $this->handler();
         $login = new Session(self::PLANTED_ID, $handler, 'semitexa_session');
         (new AuthSessionWriter())->setAuthenticated($login, 'user-1', 'password');
         $login->save();
-        $user = new StampedUser('user-1', '7');
+        self::assertNull($login->getPayload(AuthSessionSegment::class)->getCredentialStamp(), 'precondition: no stamp recorded');
 
-        $first = new Session($login->getId(), $handler, 'semitexa_session');
-        self::assertTrue($this->authenticate($first, $user)->success);
-        $first->save();
-        $user->stamp = '8';
+        $next = new Session($login->getId(), $handler, 'semitexa_session');
+        $result = $this->authenticate($next, new StampedUser('user-1', '8'));
 
-        self::assertFalse($this->authenticate(new Session($login->getId(), $handler, 'semitexa_session'), $user)->success);
+        self::assertFalse($result->success);
+        self::assertSame('Credentials not recorded', $result->reason);
+        self::assertFalse($next->getPayload(AuthSessionSegment::class)->isAuthenticated(), 'and signed out');
     }
 
     /** A sign-in that names no stamp gets the user's own at once, not on the session's next request. */
