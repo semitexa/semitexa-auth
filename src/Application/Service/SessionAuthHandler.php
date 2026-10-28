@@ -9,6 +9,7 @@ use Semitexa\Auth\Domain\Contract\AuthHandlerInterface;
 use Semitexa\Auth\Attribute\AsAuthHandler;
 use Semitexa\Auth\Domain\Contract\UserProviderInterface;
 use Semitexa\Auth\Application\Service\AuthSessionSegment;
+use Semitexa\Auth\Domain\Contract\CredentialStampedInterface;
 use Semitexa\Auth\Application\Service\AuthSessionWriter;
 use Semitexa\Core\Auth\AuthResult;
 use Semitexa\Core\Session\SessionInterface;
@@ -73,6 +74,22 @@ class SessionAuthHandler implements AuthHandlerInterface
         if ($user === null) {
             $this->clearAuthSession();
             return AuthResult::failed('User not found');
+        }
+
+        // Credentials changed since this session signed in: it is over. So is
+        // a stamped user's session that recorded no stamp: every sign-in
+        // records one (AuthSessionWriter looks it up when the caller names
+        // none), so only a session from before stamps, or one taken over from
+        // the legacy key, has none, and nothing tells whether the password
+        // changed since. Given the current stamp here, a cookie stolen before
+        // a password change outlived it whenever its first request came
+        // after the change. The cost is one sign-in for those sessions.
+        if ($user instanceof CredentialStampedInterface) {
+            $recorded = $segment->getCredentialStamp();
+            if ($recorded === null || !hash_equals($recorded, $user->credentialStamp())) {
+                $this->clearAuthSession();
+                return AuthResult::failed($recorded === null ? 'Credentials not recorded' : 'Credentials changed');
+            }
         }
 
         return AuthResult::success($user);

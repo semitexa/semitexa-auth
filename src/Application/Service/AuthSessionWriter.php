@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Semitexa\Auth\Application\Service;
 
 use Semitexa\Auth\Application\Service\SessionAuthHandler;
+use Semitexa\Auth\Domain\Contract\CredentialStampedInterface;
+use Semitexa\Auth\Domain\Contract\UserProviderInterface;
 use Semitexa\Core\Attribute\AsService;
+use Semitexa\Core\Attribute\InjectAsReadonly;
 use Semitexa\Core\Session\SessionInterface;
 
 /**
@@ -22,11 +25,29 @@ use Semitexa\Core\Session\SessionInterface;
 #[AsService]
 final class AuthSessionWriter
 {
+    /**
+     * Asked for the stamp when a sign-in names none: recorded only on the
+     * session's first request after it, a password changed in between
+     * became the stamp, and the session outlived the change. Optional only
+     * for a writer built by hand.
+     */
+    #[InjectAsReadonly(optional: true)]
+    protected UserProviderInterface $users;
+
+    /**
+     * $credentialStamp: a sign-in that proved the credential (a password, a
+     * reset link) passes the user's current one. Without it, a new identity
+     * gets the user's own from the provider, and the identity the session
+     * already holds keeps the stamp it had: a sign-in that proves nothing
+     * (an SSO refresh, remember-me) must not carry a session across a
+     * password change.
+     */
     public function setAuthenticated(
         SessionInterface $session,
         string $userId,
         string $provider,
         ?int $authenticatedAt = null,
+        ?string $credentialStamp = null,
     ): void {
         // Compare in the form the segment stores (it trims), or a padded but
         // identical id would count as a new identity and rotate the session.
@@ -50,7 +71,22 @@ final class AuthSessionWriter
             $session->regenerate();
         }
 
-        $segment->setAuthenticated($userId, $provider, $authenticatedAt);
+        // The same identity signed in again without naming a stamp keeps the
+        // one it had: SessionAuthHandler would otherwise record whatever the
+        // user's stamp is next, after a password change included.
+        $sameIdentity = $segment->getUserId() === $userId;
+        if ($credentialStamp === null && $sameIdentity) {
+            $credentialStamp = $segment->getCredentialStamp();
+        }
+        // Looked up for a new identity only. A provider whose users have no
+        // stamp (the demo's Google sign-in, which signs in again on every
+        // request) cost a user lookup per request; a stamped user's session
+        // that has none yet gets it from SessionAuthHandler on its next read.
+        if ($credentialStamp === null && !$sameIdentity && isset($this->users)) {
+            $found = $this->users->findById($userId);
+            $credentialStamp = $found instanceof CredentialStampedInterface ? $found->credentialStamp() : null;
+        }
+        $segment->setAuthenticated($userId, $provider, $authenticatedAt, $credentialStamp);
         $session->setPayload($segment);
 
         $session->set(SessionAuthHandler::SESSION_USER_KEY, $userId);
