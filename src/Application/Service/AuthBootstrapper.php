@@ -106,7 +106,7 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
                     $result = $handler->handle($payload);
                 } catch (\Throwable $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
-                        if ($e instanceof \Error) {
+                        if ($e instanceof \Error || self::isCancellation($e)) {
                             throw $e;
                         }
 
@@ -137,7 +137,7 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
                     $result = $handler->handle($payload);
                 } catch (\Throwable $e) {
                     if ($mode === AuthenticationMode::BestEffort) {
-                        if ($e instanceof \Error) {
+                        if ($e instanceof \Error || self::isCancellation($e)) {
                             throw $e;
                         }
 
@@ -285,6 +285,24 @@ final class AuthBootstrapper implements AuthBootstrapperInterface
         }
 
         return AuthManager::getInstance();
+    }
+
+    /**
+     * A coroutine its server cancelled (an SSE stream whose browser left) is
+     * not a visitor with bad credentials. Degraded to a guest, the stopped
+     * request ran on and was logged as an auth failure (25 times in one
+     * consumer's E2E run, 2026-11-16). By exact type through the
+     * previous-chain, as semitexa-ssr's SseSessionCoroutines::isCancellation().
+     */
+    private static function isCancellation(\Throwable $e): bool
+    {
+        for ($current = $e; $current !== null; $current = $current->getPrevious()) {
+            if ($current instanceof \Swoole\Coroutine\CanceledException) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function logDegradation(string $message, string $handlerClass, \Throwable $e): void
