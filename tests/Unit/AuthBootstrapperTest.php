@@ -95,6 +95,33 @@ final class AuthBootstrapperTest extends TestCase
         $bootstrapper->handle(new \stdClass(), AuthenticationMode::BestEffort);
     }
 
+    /**
+     * tk-a-cancelled-request-is-served-as-a-guest: a coroutine its server
+     * cancelled (an SSE stream whose browser left) is not a visitor with bad
+     * credentials. Degraded to a guest, the stopped request ran on and was
+     * logged as an auth failure (25 times in one consumer's E2E run).
+     */
+    public function testBestEffortLetsACancellationThroughUnlogged(): void
+    {
+        foreach ([
+            'raw' => new \Swoole\Coroutine\CanceledException(),
+            'wrapped' => new \RuntimeException('session read failed', 0, new \Swoole\Coroutine\CanceledException()),
+        ] as $shape => $cancellation) {
+            $logger = new RecordingLogger();
+            $bootstrapper = $this->makeBootstrapper(authContext: new RecordingAuthContext(), logger: $logger);
+            $bootstrapper->addHandler($this->makeThrowingHandler($cancellation));
+
+            $thrown = null;
+            try {
+                $bootstrapper->handle(new \stdClass(), AuthenticationMode::BestEffort);
+            } catch (\Throwable $e) {
+                $thrown = $e;
+            }
+            self::assertSame($cancellation, $thrown, "the {$shape} cancellation goes on instead of becoming a guest");
+            self::assertSame([], $logger->records, "a {$shape} cancellation is not an auth failure to log");
+        }
+    }
+
     public function testHandlerDiscoveryRunsOncePerClassDiscovery(): void
     {
         putenv('AUTH_ENABLED=true');
